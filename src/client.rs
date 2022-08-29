@@ -1,5 +1,10 @@
+use hippo_openapi::apis::channels_api::api_channels_id_put;
+use hippo_openapi::models::ChannelRevisionSelectionStrategyField;
 use hippo_openapi::models::GetChannelLogsVm;
+use hippo_openapi::models::GuidNullableField;
 use hippo_openapi::models::PatchChannelCommand;
+use hippo_openapi::models::StringField;
+use hippo_openapi::models::UpdateChannelCommand;
 use std::collections::HashMap;
 
 use hippo_openapi::apis::accounts_api::api_accounts_post;
@@ -186,6 +191,61 @@ impl Client {
 
     pub async fn list_channels(&self) -> anyhow::Result<ChannelItemPage> {
         api_channels_get(&self.configuration, Some(""), None, None, Some("Name"), None)
+            .await
+            .map_err(format_response_error)
+    }
+
+    #[allow(dead_code)]
+    pub async fn patch_channel(
+        &self,
+        id: Uuid,
+        name: Option<String>,
+        domain: Option<String>,
+        revision_selection_strategy: Option<ChannelRevisionSelectionStrategy>,
+        range_rule: Option<String>,
+        active_revision_id: Option<Uuid>,
+        certificate_id: Option<Uuid>,
+        environment_variables: Option<Vec<UpdateEnvironmentVariableDto>>,
+    ) -> anyhow::Result<()> {
+        let command = PatchChannelCommand {
+            channel_id: Some(id),
+            name: name.map(|s| Box::new(StringField { value: Some(s) })),
+            domain: domain.map(|s| Box::new(StringField { value: Some(s) })),
+            revision_selection_strategy: revision_selection_strategy.map(|r| Box::new(ChannelRevisionSelectionStrategyField { value: Some(r) })),
+            range_rule: range_rule.map(|s| Box::new(StringField { value: Some(s) })),
+            active_revision_id: active_revision_id.map(|a| Box::new(GuidNullableField { value: Some(a) })),
+            certificate_id: certificate_id.map(|c| Box::new(GuidNullableField { value: Some(c) })),
+            environment_variables: environment_variables.map(|evs| Box::new(UpdateEnvironmentVariableDtoListField { value: Some(evs) })),
+        };
+
+        api_channels_id_patch(&self.configuration, &id.to_string(), Some(command))
+            .await
+            .map_err(format_response_error)
+    }
+
+    #[allow(dead_code)]
+    pub async fn put_channel(
+        &self,
+        id: Uuid,
+        name: String,
+        domain: String,
+        revision_selection_strategy: ChannelRevisionSelectionStrategy,
+        range_rule: Option<String>,
+        active_revision_id: Option<Uuid>,
+        certificate_id: Option<Uuid>
+    ) -> anyhow::Result<()> {
+        let command = UpdateChannelCommand {
+            id,
+            name: name,
+            domain,
+            revision_selection_strategy,
+            range_rule,
+            active_revision_id,
+            certificate_id,
+            // TODO: remove in next Hippo release
+            last_publish_date: None,
+        };
+        api_channels_id_put(&self.configuration, &id.to_string(), Some(command))
             .await
             .map_err(format_response_error)
     }
